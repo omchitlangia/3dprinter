@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=mirror.gcr.io/docker/dockerfile:1
 # Production image for the COE 3D-print booking app.
 # Multi-stage: install → build (standalone) → minimal runtime.
 # Requires next.config.mjs `output: "standalone"`.
@@ -37,6 +37,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PRISMA_ENGINES_MIRROR=${PRISMA_ENGINES_MIRROR}
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 # `build` runs `prisma generate && next build`; standalone is emitted to .next/standalone.
+ENV NEXTAUTH_URL=https://build.invalid AUTH_SECRET=build_only_placeholder_secret_0123456789 DATABASE_URL=postgresql://build:build@localhost:5432/build SMTP_HOST=smtp.invalid SMTP_USER=build@invalid SMTP_PASSWORD=buildonly EMAIL_FROM=build@invalid S3_BUCKET=buildbucket S3_ACCESS_KEY_ID=buildkey S3_SECRET_ACCESS_KEY=buildsecret CRON_SECRET=build_only_placeholder_cron_0123456789
+ENV NEXTAUTH_URL=https://build.invalid AUTH_SECRET=build_only_placeholder_secret_0123456789 DATABASE_URL=postgresql://build:build@localhost:5432/build SMTP_HOST=smtp.invalid SMTP_USER=build@invalid SMTP_PASSWORD=buildonly EMAIL_FROM=build@invalid S3_BUCKET=buildbucket S3_ACCESS_KEY_ID=buildkey S3_SECRET_ACCESS_KEY=buildsecret CRON_SECRET=build_only_placeholder_cron_0123456789
 RUN npm run build
 
 # ---------- runtime ----------
@@ -58,9 +60,7 @@ COPY --from=build /app/.next/static ./.next/static
 # For `prisma migrate deploy` at deploy time (compose `migrate` service): carry
 # the schema, the migration SQL, the Prisma CLI, and its engine binaries.
 COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/node_modules/prisma ./node_modules/prisma
-COPY --from=build /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
-COPY --from=build /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
+COPY --from=build /app/node_modules ./node_modules
 
 USER nextjs
 EXPOSE 3000
