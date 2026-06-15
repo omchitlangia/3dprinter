@@ -35,6 +35,10 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // Required for the production Docker image: emits a self-contained server
+  // bundle under .next/standalone. Added during server verification — MUST be
+  // committed to the repo.
+  output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {

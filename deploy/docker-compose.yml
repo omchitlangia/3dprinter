@@ -1,0 +1,118 @@
+# Production topology for aitest1.snu.in (single domain).
+#
+# TRUST MODEL:
+#   - Postgres and MinIO are NEVER published to a public interface. MinIO is
+#     bound to 127.0.0.1:9000 ONLY so the host's system Caddy can reverse-proxy
+#     the /coe3d-models/* path to it. Postgres has NO host port at all — only
+#     the app reaches it over the internal docker network.
+#   - The app is bound to 127.0.0.1:3000 ONLY so the host's system Caddy can
+#     reverse-proxy everything else to it. It is not directly public either.
+#   - Public TLS termination + routing is done by the host's existing Caddy
+#     (see deploy/aitest1.Caddyfile), NOT by anything in this compose file.
+#
+# Bring up:   docker compose --env-file ../.env -f docker-compose.yml up -d --build
+# Migrate:    runs automatically via the `migrate` one-shot service.
+# Bucket:     created automatically via the `createbucket` one-shot service.
+
+name: coe3d
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
+  miniodata:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: coe3d
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coe3d_dummy_pw}
+      POSTGRES_DB: coe3d
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    # NO ports: — Postgres is reachable only on the internal network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coe3d -d coe3d"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-coe3d-minio-access}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-coe3d-minio-secret-dummy}
+      # Tell MinIO its public-facing URL so redirects/links use the single domain.
+      MINIO_SERVER_URL: https://aitest1.snu.in/coe3d-models
+      MINIO_BROWSER_REDIRECT_URL: https://aitest1.snu.in/minio-console
+    volumes:
+      - miniodata:/data
+    networks: [internal]
+    # Bound to LOOPBACK ONLY so the host Caddy can proxy /coe3d-models/* here.
+    # Never 0.0.0.0. The console (9001) is intentionally NOT published.
+    ports:
+      - "127.0.0.1:9000:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    networks: [internal]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID:-coe3d-minio-access} ${S3_SECRET_ACCESS_KEY:-coe3d-minio-secret-dummy}; do echo waiting for minio; sleep 2; done;
+      mc mb -p local/${S3_BUCKET:-coe3d-models} || true;
+      echo 'bucket ready';
+      "
+    restart: "no"
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://coe3d:${POSTGRES_PASSWORD:-coe3d_dummy_pw}@postgres:5432/coe3d?schema=public
+    networks: [internal]
+    # Apply migrations, then exit.
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    restart: "no"
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - ../.env
+    environment:
+      # Override DB host to the internal service name (the .env DATABASE_URL points at 127.0.0.1).
+      DATABASE_URL: postgresql://coe3d:${POSTGRES_PASSWORD:-coe3d_dummy_pw}@postgres:5432/coe3d?schema=public
+      # The app signs presigned URLs against the PUBLIC endpoint, but the app
+      # process itself never needs to reach MinIO — the browser does, via Caddy.
+      S3_ENDPOINT: https://aitest1.snu.in
+      S3_FORCE_PATH_STYLE: "true"
+    networks: [internal]
+    # Bound to LOOPBACK ONLY so the host Caddy can proxy everything-else here.
+    ports:
+      - "127.0.0.1:3000:3000"
