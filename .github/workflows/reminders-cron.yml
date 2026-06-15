@@ -1,0 +1,26 @@
+# Hits the reminder endpoint every 15 minutes with the shared secret.
+# This is the recommended cron mechanism because the endpoint is POST-only
+# (it mutates reminder flags, so it is intentionally NOT a GET route).
+#
+# Required repo secrets:
+#   APP_URL      e.g. https://print.coe.snu.edu.in
+#   CRON_SECRET  must match the app's CRON_SECRET env var
+name: Booking reminders
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # every 15 minutes (UTC)
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST reminder endpoint
+        run: |
+          curl -fsS -X POST "$APP_URL/api/cron/reminders" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Length: 0"
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
