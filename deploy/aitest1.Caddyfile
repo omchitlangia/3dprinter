@@ -6,13 +6,14 @@
 #
 # Routing contract:
 #   • Requests whose path starts with the bucket name (/coe3d-models/*) are
-#     reverse-proxied to MinIO with the FULL PATH PRESERVED. The presigned-URL
-#     signature is computed over the exact path /coe3d-models/<key>, so the
-#     prefix must NOT be stripped.
-#   • Everything else goes to the Next.js app on 127.0.0.1:3000.
+#     reverse-proxied to MinIO (127.0.0.1:9007) with the FULL PATH PRESERVED.
+#     The presigned-URL signature is computed over the exact path
+#     /coe3d-models/<key>, so the prefix must NOT be stripped.
+#   • Everything else goes to the Next.js app on 127.0.0.1:3007.
 #
-# The app has no route under /coe3d-models, so there is no collision.
-# Both upstreams listen on loopback only; Caddy is the sole public surface.
+# Ports match deploy/docker-compose.yml (app 3007, MinIO 9007). The app has no
+# route under /coe3d-models, so there is no collision. Both upstreams listen on
+# loopback only; Caddy is the sole public surface.
 # ─────────────────────────────────────────────────────────────────────────────
 
 aitest1.snu.in {
@@ -20,15 +21,17 @@ aitest1.snu.in {
 
 	encode zstd gzip
 
+	# Allow large uploads (matches MAX_UPLOAD_BYTES=100 MiB; add headroom).
+	request_body {
+		max_size 110MB
+	}
+
 	# Storage: bucket-prefixed paths → MinIO, full path preserved (no strip).
-	# Large model uploads: raise body limit and disable buffering so streamed
-	# PUTs go straight through.
+	# flush_interval -1 disables response buffering so streamed PUT/GET of large
+	# model files pass straight through.
 	@storage path /coe3d-models/*
 	handle @storage {
-		reverse_proxy 127.0.0.1:9000 {
-			# Preserve Host so MinIO's SigV4 path-style virtual host works;
-			# the presigned signature does not include Host for path-style,
-			# but passing it through is harmless and correct.
+		reverse_proxy 127.0.0.1:9007 {
 			header_up Host {upstream_hostport}
 			flush_interval -1
 		}
@@ -36,12 +39,7 @@ aitest1.snu.in {
 
 	# Everything else → the Next.js app.
 	handle {
-		reverse_proxy 127.0.0.1:3000
-	}
-
-	# Allow large uploads (matches MAX_UPLOAD_BYTES=100MiB; add headroom).
-	request_body {
-		max_size 110MB
+		reverse_proxy 127.0.0.1:3007
 	}
 
 	header {

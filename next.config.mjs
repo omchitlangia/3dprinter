@@ -39,6 +39,12 @@ const nextConfig = {
   // bundle under .next/standalone. Added during server verification — MUST be
   // committed to the repo.
   output: "standalone",
+  // Keep nodemailer as a true external server package. It lazy-loads transports
+  // via dynamic require(), which the standalone file-tracer can't follow — so
+  // without this it gets half-bundled and is MISSING from .next/standalone,
+  // breaking all email at runtime. Listing it here makes Next copy the whole
+  // package into the standalone node_modules instead.
+  serverExternalPackages: ["nodemailer"],
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {

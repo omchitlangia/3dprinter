@@ -1,18 +1,23 @@
 # Production topology for aitest1.snu.in (single domain).
 #
 # TRUST MODEL:
-#   - Postgres and MinIO are NEVER published to a public interface. MinIO is
-#     bound to 127.0.0.1:9000 ONLY so the host's system Caddy can reverse-proxy
-#     the /coe3d-models/* path to it. Postgres has NO host port at all — only
-#     the app reaches it over the internal docker network.
-#   - The app is bound to 127.0.0.1:3000 ONLY so the host's system Caddy can
-#     reverse-proxy everything else to it. It is not directly public either.
-#   - Public TLS termination + routing is done by the host's existing Caddy
-#     (see deploy/aitest1.Caddyfile), NOT by anything in this compose file.
+#   - Postgres has NO host port — only the app/cron reach it over the internal
+#     docker network.
+#   - MinIO is published to 127.0.0.1:9007 ONLY so the host's system Caddy can
+#     reverse-proxy /coe3d-models/* to it. Never 0.0.0.0; the console is NOT
+#     published.
+#   - The app is published to 127.0.0.1:3007 ONLY so the host's system Caddy can
+#     reverse-proxy everything-else to it. Not directly public either.
+#   - Public TLS termination + routing is the host's existing Caddy
+#     (deploy/aitest1.Caddyfile), NOT anything here.
 #
-# Bring up:   docker compose --env-file ../.env -f docker-compose.yml up -d --build
-# Migrate:    runs automatically via the `migrate` one-shot service.
-# Bucket:     created automatically via the `createbucket` one-shot service.
+# Ports 3007 (app) and 9007 (MinIO) were chosen because 3000/3001 are already in
+# use on this box by other sites. If you change them, update aitest1.Caddyfile too.
+#
+# Bring up:  docker compose --env-file ../.env -f docker-compose.yml up -d --build
+# Migrate:   automatic via the `migrate` one-shot service.
+# Bucket:    automatic via the `createbucket` one-shot service.
+# Reminders: the `cron` sidecar POSTs /api/cron/reminders every 15 minutes.
 
 name: coe3d
 
@@ -30,7 +35,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: coe3d
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coe3d_dummy_pw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in ../.env}
       POSTGRES_DB: coe3d
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -47,18 +52,17 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-coe3d-minio-access}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-coe3d-minio-secret-dummy}
-      # Tell MinIO its public-facing URL so redirects/links use the single domain.
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in ../.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in ../.env}
+      # MinIO's public-facing URL is the single domain + bucket prefix.
       MINIO_SERVER_URL: https://aitest1.snu.in/coe3d-models
-      MINIO_BROWSER_REDIRECT_URL: https://aitest1.snu.in/minio-console
     volumes:
       - miniodata:/data
     networks: [internal]
     # Bound to LOOPBACK ONLY so the host Caddy can proxy /coe3d-models/* here.
     # Never 0.0.0.0. The console (9001) is intentionally NOT published.
     ports:
-      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9007:9000"
     healthcheck:
       test: ["CMD-SHELL", "mc ready local || exit 1"]
       interval: 5s
@@ -73,10 +77,13 @@ services:
     networks: [internal]
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID:-coe3d-minio-access} ${S3_SECRET_ACCESS_KEY:-coe3d-minio-secret-dummy}; do echo waiting for minio; sleep 2; done;
+      until mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do echo waiting for minio; sleep 2; done;
       mc mb -p local/${S3_BUCKET:-coe3d-models} || true;
       echo 'bucket ready';
       "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
     restart: "no"
 
   migrate:
@@ -87,7 +94,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://coe3d:${POSTGRES_PASSWORD:-coe3d_dummy_pw}@postgres:5432/coe3d?schema=public
+      DATABASE_URL: postgresql://coe3d:${POSTGRES_PASSWORD:?}@postgres:5432/coe3d?schema=public
     networks: [internal]
     # Apply migrations, then exit.
     command: ["node_modules/.bin/prisma", "migrate", "deploy"]
@@ -106,13 +113,39 @@ services:
     env_file:
       - ../.env
     environment:
-      # Override DB host to the internal service name (the .env DATABASE_URL points at 127.0.0.1).
-      DATABASE_URL: postgresql://coe3d:${POSTGRES_PASSWORD:-coe3d_dummy_pw}@postgres:5432/coe3d?schema=public
-      # The app signs presigned URLs against the PUBLIC endpoint, but the app
-      # process itself never needs to reach MinIO — the browser does, via Caddy.
+      # The .env DATABASE_URL already targets host "postgres"; re-assert it here
+      # so the container never accidentally inherits a 127.0.0.1 value.
+      DATABASE_URL: postgresql://coe3d:${POSTGRES_PASSWORD:?}@postgres:5432/coe3d?schema=public
+      # Presigned URLs are signed against the PUBLIC endpoint; the app process
+      # itself never reaches MinIO — the browser does, via Caddy.
       S3_ENDPOINT: https://aitest1.snu.in
       S3_FORCE_PATH_STYLE: "true"
     networks: [internal]
-    # Bound to LOOPBACK ONLY so the host Caddy can proxy everything-else here.
+    # Bound to LOOPBACK ONLY so the host Caddy proxies everything-else here.
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3007:3000"
+
+  # Reminder cron: POST /api/cron/reminders every 15 minutes with the bearer
+  # secret. Hits the app over the internal network (not the public domain), so
+  # it works regardless of Caddy. Sends 24h/1h booking reminders.
+  cron:
+    image: curlimages/curl:latest
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    networks: [internal]
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in ../.env}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "cron sidecar: POST http://app:3000/api/cron/reminders every 900s";
+        while true; do
+          sleep 900;
+          code=$$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $${CRON_SECRET}" \
+            http://app:3000/api/cron/reminders || echo "curl-failed");
+          echo "$$(date -u +%FT%TZ) reminders -> $$code";
+        done

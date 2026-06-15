@@ -20,10 +20,18 @@ const schema = z.object({
 
   DATABASE_URL: z.string().min(1),
 
-  AUTH_GOOGLE_ID: z.string().min(1),
-  AUTH_GOOGLE_SECRET: z.string().min(1),
-
-  RESEND_API_KEY: z.string().min(1),
+  // Email — Gmail SMTP via Nodemailer (used for BOTH magic-link sign-in and
+  // booking notification emails). Gmail requires the authenticated account in
+  // the From header, so EMAIL_FROM must use SMTP_USER's address (display name
+  // is fine). SMTP_PASSWORD is the Gmail app password.
+  SMTP_HOST: z.string().min(1),
+  SMTP_PORT: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v) : 587))
+    .pipe(z.number().int().positive()),
+  SMTP_USER: z.string().min(1),
+  SMTP_PASSWORD: z.string().min(1, "SMTP_PASSWORD must be set"),
   EMAIL_FROM: z.string().min(1),
 
   S3_REGION: z.string().default("auto"),

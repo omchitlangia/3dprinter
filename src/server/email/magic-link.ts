@@ -2,12 +2,12 @@ import "server-only";
 
 import { render } from "@react-email/components";
 
-import { EMAIL_FROM, resend } from "@/lib/resend";
+import { sendMail } from "@/lib/mailer";
 import MagicLink from "../../../emails/MagicLink";
 
 /**
- * Custom magic-link sender used by the Auth.js email (Nodemailer) provider's
- * `sendVerificationRequest`. Delivers via Resend + React Email instead of SMTP.
+ * Custom magic-link sender used by the Auth.js email provider's
+ * `sendVerificationRequest`. Delivers via Gmail SMTP (Nodemailer) + React Email.
  */
 export async function sendMagicLink(params: {
   identifier: string;
@@ -18,14 +18,17 @@ export async function sendMagicLink(params: {
 
   const html = await render(MagicLink({ url, host }));
 
-  const { error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: `Sign in to COE 3D Print`,
-    html,
-  });
-
-  if (error) {
-    throw new Error(`Failed to send magic-link email: ${error.message}`);
+  try {
+    await sendMail({
+      to: email,
+      subject: `Sign in to COE 3D Print`,
+      html,
+    });
+  } catch (err) {
+    throw new Error(
+      `Failed to send magic-link email: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
   }
 }

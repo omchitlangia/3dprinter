@@ -1,23 +1,19 @@
 import type { NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
 
 import { isAllowedEmail } from "@/lib/env";
 
 /**
  * Edge-safe Auth.js config. Contains everything the middleware needs but no
- * Node-only dependencies (no Prisma adapter, no Resend). The full config in
- * `index.ts` extends this with the adapter and the email provider.
+ * Node-only dependencies (no Prisma adapter, no mailer). The full config in
+ * `index.ts` extends this with the adapter and the magic-link email provider.
+ *
+ * Sign-in is MAGIC-LINK ONLY — there is no OAuth provider. The email provider
+ * is added in the full (Node) config because it needs the SMTP mailer.
  */
 export const authConfig = {
   providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      // Force account chooser so users on multiple Google accounts can pick the
-      // institutional one.
-      authorization: { params: { prompt: "select_account" } },
-    }),
-    // Email provider is added in the full (Node) config — it needs Resend.
+    // Magic-link email provider is added in the full (Node) config — it needs
+    // the Nodemailer SMTP transport, which is Node-only.
   ],
   pages: {
     signIn: "/signin",
@@ -32,8 +28,7 @@ export const authConfig = {
   callbacks: {
     /**
      * Gatekeeper for every sign-in. Reject any email whose domain isn't in the
-     * allowlist — applies to BOTH Google and magic-link. Returning a string
-     * redirects to that error page.
+     * allowlist. Returning a string redirects to that error page.
      */
     signIn({ user }) {
       if (!isAllowedEmail(user.email)) {

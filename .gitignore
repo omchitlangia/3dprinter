@@ -7,3 +7,9 @@ node_modules
 .vercel
 next-env.d.ts
 /prisma/dev.db*
+# Local-only npm registry override (this host can't reach npmjs directly).
+# Never committed — the repo must not carry a mirror; integrity hashes in the
+# lockfile guarantee correct bytes regardless of which registry serves them.
+.npmrc
+# Lockfile backups / scratch artifacts.
+*.bak

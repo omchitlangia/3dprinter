@@ -4,7 +4,7 @@ import { render } from "@react-email/components";
 import type { Booking, Printer, User } from "@prisma/client";
 
 import { env } from "@/lib/env";
-import { EMAIL_FROM, resend } from "@/lib/resend";
+import { sendMail } from "@/lib/mailer";
 import BookingConfirmed from "../../../emails/BookingConfirmed";
 import BookingReminder from "../../../emails/BookingReminder";
 import BookingStatus, { type StatusKind } from "../../../emails/BookingStatus";
@@ -45,8 +45,7 @@ async function safeSend(args: {
   html: string;
 }): Promise<void> {
   try {
-    await resend.emails.send({
-      from: EMAIL_FROM,
+    await sendMail({
       to: args.to,
       subject: args.subject,
       html: args.html,

@@ -22,9 +22,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "database" },
   providers: [
     ...authConfig.providers,
-    // Custom email (magic-link) provider. We bring our own mailer (Resend), so
-    // we use the generic "email" provider type and fully override delivery —
-    // this avoids the nodemailer/SMTP dependency entirely.
+    // Magic-link email provider — the ONLY sign-in method. We fully override
+    // delivery (`sendVerificationRequest`) to send via our Gmail SMTP mailer
+    // (Nodemailer) instead of Auth.js's built-in server transport.
     {
       id: "email",
       type: "email",

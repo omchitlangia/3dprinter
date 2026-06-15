@@ -112,12 +112,11 @@ async function main() {
   const right = await status("/api/cron/reminders", { method: "POST", headers: { authorization: `Bearer ${E.CRON_SECRET}` } });
   log(right === 200, "cron correct bearer → 200", `status ${right}`);
 
-  // 5 login blocked by dummy creds — hitting the Google sign-in start should NOT 500;
-  //   the failure surfaces only when Google rejects the dummy client. We just confirm
-  //   the provider endpoint is wired (302/200), proving login is reachable but will be
-  //   rejected by Google until real creds are added.
+  // 5 sign-in is magic-link only. Confirm the sign-in page + the NextAuth signin
+  //   endpoint are reachable (200/302). Actually completing a login requires
+  //   SMTP_PASSWORD to be set so the magic-link email can send.
   const prov = await status("/api/auth/signin");
-  log(prov === 200 || prov === 302, "auth signin endpoint reachable", `status ${prov} (real Google creds still required to complete)`);
+  log(prov === 200 || prov === 302, "auth signin endpoint reachable", `status ${prov} (magic-link; needs SMTP_PASSWORD set to deliver)`);
 
   console.log("\n" + (pass ? "RESULT: PASS — public pipeline verified." : "RESULT: FAIL — see lines above."));
   process.exit(pass ? 0 : 1);
