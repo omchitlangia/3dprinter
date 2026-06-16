@@ -1,5 +1,5 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/server/auth/guards";
@@ -12,9 +12,17 @@ export async function SiteHeader() {
   return (
     <header className="border-b bg-background">
       <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Printer className="h-5 w-5" />
-          <span>COE 3D Print</span>
+        <Link href="/" className="flex items-center" aria-label="COE 3D Print — home">
+          {/* Logo lives at public/logo.png (2048×464). h-10 keeps it inside the
+              16-unit header; w-auto preserves the wide aspect ratio. */}
+          <Image
+            src="/logo.png"
+            alt="Shiv Nadar University — AI Center of Excellence"
+            width={2048}
+            height={464}
+            priority
+            className="h-10 w-auto"
+          />
         </Link>
         <nav className="flex items-center gap-2">
           {user ? (

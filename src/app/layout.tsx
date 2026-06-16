@@ -17,10 +17,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-muted/30 antialiased">
+      <body className="flex min-h-screen flex-col bg-muted/30 antialiased">
         <Providers>
           <SiteHeader />
-          <main className="container py-8">{children}</main>
+          <main className="container flex-1 py-8">{children}</main>
+          <footer className="border-t py-6 text-center text-sm text-muted-foreground">
+            Made with <span aria-hidden="true">❤️</span> by RoosterDev
+          </footer>
         </Providers>
       </body>
     </html>
