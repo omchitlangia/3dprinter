@@ -12,20 +12,21 @@ export default async function HomePage() {
     <div className="mx-auto max-w-3xl space-y-8">
       <section className="space-y-3 text-center">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Book the COE 3D Print Lab
+          Apply to print at the COE 3D Print Lab
         </h1>
         <p className="mx-auto max-w-xl text-muted-foreground">
-          Submit your model, pick a slot on a compatible printer, and get
-          confirmed instantly. AI Center of Excellence, Shiv Nadar University.
+          Upload your model, choose a filament, and propose three days. An admin
+          reviews each request and confirms a day. AI Center of Excellence, Shiv
+          Nadar University.
         </p>
         <div className="flex justify-center gap-3 pt-2">
           {session?.user ? (
             <Button asChild>
-              <Link href="/book">Start a booking</Link>
+              <Link href="/book">Start an application</Link>
             </Button>
           ) : (
             <Button asChild>
-              <Link href="/signin">Sign in to book</Link>
+              <Link href="/signin">Sign in to apply</Link>
             </Button>
           )}
         </div>
@@ -35,18 +36,19 @@ export default async function HomePage() {
         <Card>
           <CardHeader>
             <FileUp className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base">1. Submit</CardTitle>
+            <CardTitle className="text-base">1. Apply</CardTitle>
             <CardDescription>
-              Upload your .stl / .3mf / .obj and print settings.
+              Upload your .stl / .3mf / .obj, pick a filament, and propose three
+              days.
             </CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CalendarClock className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base">2. Schedule</CardTitle>
+            <CardTitle className="text-base">2. Review</CardTitle>
             <CardDescription>
-              Pick a free slot on a compatible printer.
+              An admin reviews your request and confirms one of your days.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -55,7 +57,7 @@ export default async function HomePage() {
             <Printer className="h-5 w-5 text-primary" />
             <CardTitle className="text-base">3. Print</CardTitle>
             <CardDescription>
-              Auto-confirmed. We email you at every step.
+              You&apos;re emailed the decision and your confirmed day.
             </CardDescription>
           </CardHeader>
         </Card>

@@ -6,10 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "../auth/guards";
 import { createPresignedDownload } from "../storage/s3";
 
-const schema = z.object({ bookingId: z.string().cuid() });
+const schema = z.object({ applicationId: z.string().cuid() });
 
 /**
- * Issues a short-lived presigned download URL for a booking's model file.
+ * Issues a short-lived presigned download URL for an application's model file.
  * Owner-or-admin only; the object is otherwise private.
  */
 export async function getDownloadUrl(
@@ -19,18 +19,18 @@ export async function getDownloadUrl(
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request" };
 
-  const booking = await prisma.booking.findUnique({
-    where: { id: parsed.data.bookingId },
+  const application = await prisma.application.findUnique({
+    where: { id: parsed.data.applicationId },
     select: { userId: true, fileKey: true, fileName: true },
   });
-  if (!booking) return { ok: false, error: "Booking not found" };
-  if (booking.userId !== user.id && user.role !== "admin") {
+  if (!application) return { ok: false, error: "Application not found" };
+  if (application.userId !== user.id && user.role !== "admin") {
     return { ok: false, error: "Not allowed" };
   }
 
   const url = await createPresignedDownload({
-    key: booking.fileKey,
-    fileName: booking.fileName,
+    key: application.fileKey,
+    fileName: application.fileName,
   });
   return { ok: true, url };
 }

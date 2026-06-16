@@ -1,145 +1,111 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { updateStatusSchema, type UpdateStatusInput } from "@/lib/validation";
+import {
+  approveApplicationSchema,
+  rejectApplicationSchema,
+  type ApproveApplicationInput,
+  type RejectApplicationInput,
+} from "@/lib/validation";
 import { requireAdmin } from "../auth/guards";
-import { logAudit } from "../audit";
-import { sendBookingStatus } from "../email/send";
-import type { ActionResult } from "./booking";
-
-// Status changes that have a user-facing email.
-const EMAILED_STATUSES = ["printing", "ready_for_pickup", "cancelled", "rejected"] as const;
-type EmailedStatus = (typeof EMAILED_STATUSES)[number];
+import {
+  sendApplicationApproved,
+  sendApplicationApprovedAdminCopy,
+  sendApplicationRejected,
+} from "../email/send";
+import type { ActionResult } from "./application";
 
 /**
- * Admin: change a booking's status (any transition in the allowed set) or
- * cancel/reject it. Validates authn + admin authz + Zod, writes an audit entry
- * (actor + timestamp) atomically with the update, and fires the matching email.
+ * Admin: approve an application by confirming WHICH of the applicant's three
+ * requested days to use (default = preferred). Never invents a date. Sets
+ * status APPROVED + confirmedDate, records decidedBy + decidedAt, and emails
+ * the applicant (with a copy to the admins).
  */
-export async function adminUpdateStatus(
-  input: UpdateStatusInput
+export async function adminApprove(
+  input: ApproveApplicationInput
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const parsed = updateStatusSchema.safeParse(input);
+  const parsed = approveApplicationSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid request" };
   }
-  const { bookingId, status, reason } = parsed.data;
+  const { applicationId, slot, note } = parsed.data;
 
-  const existing = await prisma.booking.findUnique({ where: { id: bookingId } });
-  if (!existing) return { ok: false, error: "Booking not found" };
-  if (existing.status === status) {
-    return { ok: false, error: "Booking is already in that status" };
+  const existing = await prisma.application.findUnique({ where: { id: applicationId } });
+  if (!existing) return { ok: false, error: "Application not found" };
+  if (existing.status !== "PENDING") {
+    return { ok: false, error: "Only a pending application can be approved." };
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const u = await tx.booking.update({
-      where: { id: bookingId },
-      data: { status },
-      include: { printer: true, user: true },
-    });
-    await logAudit(
-      {
-        actorId: admin.id,
-        bookingId,
-        action: "status_change",
-        detail: `${existing.status} → ${status}${reason ? ` (reason: ${reason})` : ""}`,
-      },
-      tx
-    );
-    return u;
+  // Pick the confirmed day from the applicant's own three requested days.
+  const confirmedDate =
+    slot === "alt1"
+      ? existing.altDate1
+      : slot === "alt2"
+        ? existing.altDate2
+        : existing.preferredDate;
+
+  const updated = await prisma.application.update({
+    where: { id: applicationId },
+    data: {
+      status: "APPROVED",
+      confirmedDate,
+      decisionNote: note ?? null,
+      decidedById: admin.id,
+      decidedAt: new Date(),
+    },
+    include: { applicant: true },
   });
 
-  if ((EMAILED_STATUSES as readonly string[]).includes(status)) {
-    await sendBookingStatus(updated, status as EmailedStatus, reason);
-  }
+  await Promise.allSettled([
+    sendApplicationApproved(updated),
+    sendApplicationApprovedAdminCopy(updated),
+  ]);
 
   revalidatePath("/admin");
-  revalidatePath("/bookings");
-  revalidatePath(`/bookings/${bookingId}`);
+  revalidatePath("/applications");
   return { ok: true };
 }
 
-// ───────────────────────── Printer management ─────────────────────────
-
-const printerStatusSchema = z.object({
-  printerId: z.string().cuid(),
-  status: z.enum(["available", "maintenance", "offline"]),
-});
-
-/** Admin: set a printer's status (available/maintenance/offline). Audited. */
-export async function adminSetPrinterStatus(
-  input: z.infer<typeof printerStatusSchema>
+/**
+ * Admin: reject an application with an optional reason. Sets status REJECTED,
+ * records decidedBy + decidedAt, and emails the applicant (with the reason if
+ * given).
+ */
+export async function adminReject(
+  input: RejectApplicationInput
 ): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const parsed = printerStatusSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid request" };
-
-  const printer = await prisma.printer.findUnique({ where: { id: parsed.data.printerId } });
-  if (!printer) return { ok: false, error: "Printer not found" };
-
-  await prisma.$transaction(async (tx) => {
-    await tx.printer.update({
-      where: { id: parsed.data.printerId },
-      data: { status: parsed.data.status },
-    });
-    await logAudit(
-      {
-        actorId: admin.id,
-        action: "printer_status",
-        detail: `${printer.name}: ${printer.status} → ${parsed.data.status}`,
-      },
-      tx
-    );
-  });
-
-  revalidatePath("/admin");
-  return { ok: true };
-}
-
-const maintenanceSchema = z
-  .object({
-    printerId: z.string().cuid(),
-    start: z.string().datetime().transform((s) => new Date(s)),
-    end: z.string().datetime().transform((s) => new Date(s)),
-    reason: z.string().max(300).optional().nullable(),
-  })
-  .refine((d) => d.end > d.start, { message: "End must be after start" });
-
-/** Admin: add a maintenance window. Audited. */
-export async function adminAddMaintenance(
-  input: unknown
-): Promise<ActionResult> {
-  const admin = await requireAdmin();
-
-  const parsed = maintenanceSchema.safeParse(input);
+  const parsed = rejectApplicationSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid request" };
   }
-  const { printerId, start, end, reason } = parsed.data;
+  const { applicationId, reason } = parsed.data;
 
-  const printer = await prisma.printer.findUnique({ where: { id: printerId } });
-  if (!printer) return { ok: false, error: "Printer not found" };
+  const existing = await prisma.application.findUnique({ where: { id: applicationId } });
+  if (!existing) return { ok: false, error: "Application not found" };
+  if (existing.status !== "PENDING") {
+    return { ok: false, error: "Only a pending application can be rejected." };
+  }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.maintenanceWindow.create({
-      data: { printerId, start, end, reason: reason ?? null },
-    });
-    await logAudit(
-      {
-        actorId: admin.id,
-        action: "maintenance_add",
-        detail: `${printer.name}: ${start.toISOString()} → ${end.toISOString()}`,
-      },
-      tx
-    );
+  const updated = await prisma.application.update({
+    where: { id: applicationId },
+    data: {
+      status: "REJECTED",
+      decisionNote: reason ?? null,
+      decidedById: admin.id,
+      decidedAt: new Date(),
+    },
+    include: { applicant: true },
   });
 
+  await Promise.allSettled([sendApplicationRejected(updated)]);
+
   revalidatePath("/admin");
+  revalidatePath("/applications");
   return { ok: true };
 }

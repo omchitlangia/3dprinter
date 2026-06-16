@@ -21,7 +21,7 @@ export function middleware(req: NextRequest) {
   const { nextUrl } = req;
 
   const isProtected =
-    nextUrl.pathname.startsWith("/bookings") ||
+    nextUrl.pathname.startsWith("/applications") ||
     nextUrl.pathname.startsWith("/book") ||
     nextUrl.pathname.startsWith("/admin");
 

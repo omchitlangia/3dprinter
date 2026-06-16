@@ -5,9 +5,9 @@ import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "COE 3D Print Lab — Booking",
+  title: "COE 3D Print Lab — Applications",
   description:
-    "Book a 3D printer at the AI Center of Excellence, Shiv Nadar University.",
+    "Apply to print at the AI Center of Excellence 3D Print Lab, Shiv Nadar University.",
 };
 
 export default function RootLayout({

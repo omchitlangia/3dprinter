@@ -50,8 +50,8 @@ const useUpstash = Boolean(
   env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN
 );
 
-/** Booking creation: 5 per minute per user. */
-export const bookingLimiter = useUpstash
+/** Application submission: 5 per minute per user. */
+export const applicationLimiter = useUpstash
   ? upstashLimiter(5, "1 m")
   : memoryLimiter(5, 60_000);
 
