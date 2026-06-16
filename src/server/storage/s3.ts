@@ -16,6 +16,11 @@ const s3 = new S3Client({
   region: env.S3_REGION,
   endpoint: env.S3_ENDPOINT || undefined,
   forcePathStyle: env.S3_FORCE_PATH_STYLE,
+  // AWS SDK v3 (>=3.729) adds a CRC32 checksum to PutObject by default; when
+  // presigning it bakes the checksum of an EMPTY body into the signed URL, so
+  // MinIO/R2 reject the real upload with 403. Only checksum when required.
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
   credentials: {
     accessKeyId: env.S3_ACCESS_KEY_ID,
     secretAccessKey: env.S3_SECRET_ACCESS_KEY,

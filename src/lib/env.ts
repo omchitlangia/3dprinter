@@ -1,9 +1,11 @@
 import { z } from "zod";
 
 /**
- * Centralised, validated environment access. Importing `env` anywhere will
- * throw at module-load time if required vars are missing or malformed, so
- * misconfiguration fails fast rather than at the first request.
+ * Centralised, validated environment access. On the SERVER, importing `env`
+ * throws at module-load time if required vars are missing or malformed, so
+ * misconfiguration fails fast. Client components can transitively import this
+ * module (e.g. via lib/uploads); in the browser the server secrets legitimately
+ * do not exist, so it must NOT throw there.
  *
  * Secrets are read from `process.env` only — never hardcoded.
  */
@@ -20,10 +22,6 @@ const schema = z.object({
 
   DATABASE_URL: z.string().min(1),
 
-  // Email — Gmail SMTP via Nodemailer (used for BOTH magic-link sign-in and
-  // booking notification emails). Gmail requires the authenticated account in
-  // the From header, so EMAIL_FROM must use SMTP_USER's address (display name
-  // is fine). SMTP_PASSWORD is the Gmail app password.
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z
     .string()
@@ -55,25 +53,29 @@ const schema = z.object({
 
   CRON_SECRET: z.string().min(16, "CRON_SECRET must be set"),
 
-  // Derived (parsed below), not raw env.
   ALLOWED_EMAIL_DOMAINS: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
 
-if (!parsed.success) {
-  // Surface every missing/invalid var at once.
+// Fail fast on the SERVER only. In the browser the secrets aren't present and
+// client code must never depend on them, so we don't throw.
+if (!parsed.success && typeof window === "undefined") {
   const issues = parsed.error.issues
     .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
     .join("\n");
   throw new Error(`Invalid environment configuration:\n${issues}`);
 }
 
+const data = parsed.success
+  ? parsed.data
+  : (process.env as unknown as z.infer<typeof schema>);
+
 export const env = {
-  ...parsed.data,
-  ALLOWED_EMAIL_DOMAINS: csv(parsed.data.ALLOWED_EMAIL_DOMAINS),
-  ADMIN_EMAILS: csv(parsed.data.ADMIN_EMAILS),
+  ...data,
+  ALLOWED_EMAIL_DOMAINS: csv(data.ALLOWED_EMAIL_DOMAINS),
+  ADMIN_EMAILS: csv(data.ADMIN_EMAILS),
 };
 
 /** True when the given email's domain is in the allowlist. */
@@ -81,7 +83,6 @@ export function isAllowedEmail(email?: string | null): boolean {
   if (!email) return false;
   const domain = email.split("@")[1]?.toLowerCase();
   if (!domain) return false;
-  // Empty allowlist = deny everyone (fail closed).
   return env.ALLOWED_EMAIL_DOMAINS.includes(domain);
 }
 
