@@ -23,12 +23,13 @@ import { getPresignedUpload } from "@/server/actions/upload";
 
 const ACCEPT = ALLOWED_EXTENSIONS.map((e) => "." + e).join(",");
 
-export function ApplicationForm() {
+export function ApplicationForm({ initialName = "" }: { initialName?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [name, setName] = useState(initialName);
   const [filament, setFilament] = useState("");
   const [hours, setHours] = useState("2");
   const [file, setFile] = useState<File | null>(null);
@@ -56,6 +57,7 @@ export function ApplicationForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!name.trim()) return setError("Please enter your name.");
     if (!file) return setError("Please choose a model file.");
     if (!filament) return setError("Please select a filament type.");
     const hoursNum = Number(hours);
@@ -91,6 +93,7 @@ export function ApplicationForm() {
 
       // 3) submit the application
       const res = await createApplication({
+        name: name.trim(),
         filament,
         estimatedHours: hoursNum,
         fileKey: presign.key,
@@ -148,6 +151,19 @@ export function ApplicationForm() {
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Your name</Label>
+            <Input
+              id="name"
+              type="text"
+              required
+              autoComplete="name"
+              placeholder="e.g. Jane Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="file">Model file ({ACCEPT})</Label>
             <Input

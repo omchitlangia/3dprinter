@@ -28,6 +28,13 @@ const dayString = z
  */
 export const createApplicationSchema = z
   .object({
+    // The applicant's name. Magic-link sign-in captures no name, so we collect
+    // it here and persist it to the user (shown in admin + emails).
+    name: z
+      .string()
+      .trim()
+      .min(1, "Please enter your name")
+      .max(100, "Name is too long"),
     filament: z.enum(FILAMENT_TYPES),
     estimatedHours: z
       .number()

@@ -8,11 +8,18 @@ export default async function ApplyPage() {
   const user = await requireUserPage();
 
   // One active application per user: if they already have a PENDING one, block
-  // a new submission and tell them clearly.
-  const pending = await prisma.application.findFirst({
-    where: { userId: user.id, status: "PENDING" },
-    select: { id: true },
-  });
+  // a new submission and tell them clearly. Also read the stored name to
+  // pre-fill the form for returning applicants.
+  const [pending, dbUser] = await Promise.all([
+    prisma.application.findFirst({
+      where: { userId: user.id, status: "PENDING" },
+      select: { id: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { name: true },
+    }),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -36,7 +43,7 @@ export default async function ApplyPage() {
           </p>
         </div>
       ) : (
-        <ApplicationForm />
+        <ApplicationForm initialName={dbUser?.name ?? ""} />
       )}
     </div>
   );

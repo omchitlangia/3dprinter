@@ -60,6 +60,13 @@ export async function createApplication(
     };
   }
 
+  // Persist the applicant's name so it shows in the admin queue and emails.
+  // (Magic-link sign-in never captures a name, so the form does.)
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { name: data.name },
+  });
+
   const created = await prisma.application.create({
     data: {
       userId: user.id,

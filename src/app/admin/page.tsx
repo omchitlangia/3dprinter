@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDay } from "@/lib/dates";
+import { displayName } from "@/lib/display";
 import { formatDateTime } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { listFilterSchema } from "@/lib/validation";
@@ -68,7 +69,7 @@ export default async function AdminDashboard({
                 {applications.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell>
-                      <div className="font-medium">{a.applicant.name ?? "—"}</div>
+                      <div className="font-medium">{displayName(a.applicant)}</div>
                       <div className="text-xs text-muted-foreground">
                         {a.applicant.email}
                       </div>
