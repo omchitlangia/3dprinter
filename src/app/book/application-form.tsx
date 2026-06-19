@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { CheckCircle2, Loader2, UploadCloud } from "lucide-react";
+import { Loader2, UploadCloud } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,6 @@ const ACCEPT = ALLOWED_EXTENSIONS.map((e) => "." + e).join(",");
 export function ApplicationForm({ initialName = "" }: { initialName?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [name, setName] = useState(initialName);
@@ -107,36 +106,15 @@ export function ApplicationForm({ initialName = "" }: { initialName?: string }) 
         setSubmitting(false);
         return setError(res.error);
       }
-      setDone(true);
+      // Redirect to the applications list; the new pending application shows
+      // there. Keep `submitting` true so the button stays in its loading state
+      // through the navigation. `?submitted=1` triggers a one-time success note.
+      router.push("/applications?submitted=1");
+      router.refresh();
     } catch {
       setSubmitting(false);
       setError("Something went wrong. Please try again.");
     }
-  }
-
-  if (done) {
-    return (
-      <Card>
-        <CardHeader className="items-center text-center">
-          <CheckCircle2 className="h-10 w-10 text-emerald-600" />
-          <CardTitle>Application submitted</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-3 text-center">
-          <p className="text-sm text-muted-foreground">
-            It&apos;s now pending review. We&apos;ve notified the lab and will email
-            you once a decision is made.
-          </p>
-          <div className="flex gap-2">
-            <Button onClick={() => router.push("/applications")}>
-              My applications
-            </Button>
-            <Button variant="outline" onClick={() => router.refresh()}>
-              Done
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
   }
 
   return (

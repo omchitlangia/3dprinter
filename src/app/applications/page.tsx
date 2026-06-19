@@ -7,8 +7,13 @@ import { formatDay } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 import { requireUserPage } from "@/server/auth/guards";
 
-export default async function MyApplicationsPage() {
+export default async function MyApplicationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submitted?: string }>;
+}) {
   const user = await requireUserPage();
+  const { submitted } = await searchParams;
 
   const applications = await prisma.application.findMany({
     where: { userId: user.id },
@@ -25,6 +30,13 @@ export default async function MyApplicationsPage() {
           <Link href="/book">New application</Link>
         </Button>
       </div>
+
+      {submitted && (
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          Application submitted — it&apos;s now pending review. We&apos;ve notified
+          the lab and will email you once a decision is made.
+        </div>
+      )}
 
       {hasPending && (
         <p className="text-sm text-muted-foreground">
