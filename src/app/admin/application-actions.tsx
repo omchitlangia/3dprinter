@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { adminApprove, adminReject } from "@/server/actions/admin";
 import { getDownloadUrl } from "@/server/actions/download";
 import type { RequestedSlot } from "@/lib/validation";
@@ -87,7 +88,7 @@ export function ApplicationActions({
   }
 
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="flex flex-wrap items-center justify-end gap-2">
       {error && <span className="mr-1 text-xs text-destructive">{error}</span>}
 
       <Button
@@ -96,6 +97,7 @@ export function ApplicationActions({
         onClick={download}
         disabled={downloading}
         title="Download model file"
+        aria-label="Download model file"
       >
         {downloading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -109,7 +111,11 @@ export function ApplicationActions({
           {/* Approve */}
           <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-emerald-700">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-brand-teal/40 text-brand-teal-hover hover:bg-brand-teal/5 hover:text-brand-teal-hover"
+              >
                 <Check className="mr-1 h-4 w-4" /> Approve
               </Button>
             </DialogTrigger>
@@ -125,16 +131,22 @@ export function ApplicationActions({
                   {days.map((d) => (
                     <label
                       key={d.slot}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm"
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm transition-colors",
+                        slot === d.slot
+                          ? "border-brand-teal bg-brand-teal/5"
+                          : "border-brand-hairline hover:bg-slate-50"
+                      )}
                     >
                       <input
                         type="radio"
                         name="confirmDay"
+                        className="h-4 w-4 accent-brand-teal"
                         checked={slot === d.slot}
                         onChange={() => setSlot(d.slot)}
                       />
-                      <span className="font-medium">{d.day}</span>
-                      <span className="text-muted-foreground">({d.label})</span>
+                      <span className="font-medium text-brand-ink">{d.day}</span>
+                      <span className="text-slate-500">({d.label})</span>
                     </label>
                   ))}
                 </div>
@@ -164,7 +176,11 @@ export function ApplicationActions({
           {/* Reject */}
           <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-destructive">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
                 <X className="mr-1 h-4 w-4" /> Reject
               </Button>
             </DialogTrigger>

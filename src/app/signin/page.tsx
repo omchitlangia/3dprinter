@@ -1,6 +1,7 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthShell } from "@/components/auth-card";
 import { getSession } from "@/server/auth/guards";
 import { SignInForm } from "./signin-form";
 
@@ -15,19 +16,35 @@ export default async function SignInPage({
   const { callbackUrl } = await searchParams;
 
   return (
-    <div className="mx-auto max-w-md py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>
-            Use your institutional account. Only allowed email domains can sign
-            in.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <AuthShell>
+      <div className="rounded-2xl border border-brand-hairline bg-white p-8 shadow-sm">
+        <div className="flex flex-col items-center text-center">
+          <Image
+            src="/logo.png"
+            alt="Shiv Nadar Institution of Eminence — AI Centre of Excellence"
+            width={2048}
+            height={464}
+            priority
+            className="h-9 w-auto"
+          />
+          <h1 className="mt-6 font-display text-2xl font-bold tracking-tight text-brand-ink">
+            Sign in
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            We&apos;ll email you a one-time magic link — no password needed.
+          </p>
+        </div>
+
+        <div className="mt-6">
           <SignInForm callbackUrl={callbackUrl ?? "/book"} />
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-center text-xs text-slate-500">
+        Only{" "}
+        <span className="font-medium text-slate-600">@snu.edu.in</span> accounts
+        can sign in.
+      </p>
+    </AuthShell>
   );
 }

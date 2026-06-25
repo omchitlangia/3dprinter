@@ -21,28 +21,27 @@ export function SignInForm({ callbackUrl }: { callbackUrl: string }) {
   }
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={onEmail} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="email">Email magic link</Label>
-          <Input
-            id="email"
-            type="email"
-            required
-            placeholder="you@snu.edu.in"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Mail className="h-4 w-4" />
-          )}
-          Send magic link
-        </Button>
-      </form>
-    </div>
+    <form onSubmit={onEmail} className="space-y-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="email">Email address</Label>
+        <Input
+          id="email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@snu.edu.in"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+      <Button type="submit" size="lg" className="w-full" disabled={loading}>
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Mail className="h-4 w-4" />
+        )}
+        Send magic link
+      </Button>
+    </form>
   );
 }

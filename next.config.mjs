@@ -23,6 +23,8 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
+      // Decorative hero video is served same-origin from /public/hero.
+      "media-src 'self'",
       "font-src 'self' data:",
       // Allow XHR/fetch to self + S3-compatible storage for presigned uploads.
       "connect-src 'self' https:",
@@ -45,6 +47,11 @@ const nextConfig = {
   // breaking all email at runtime. Listing it here makes Next copy the whole
   // package into the standalone node_modules instead.
   serverExternalPackages: ["nodemailer"],
+  // Marketing media (hero poster, printer photo, gallery prints) is pre-sized and
+  // web-optimized. Disable the Image Optimization pipeline: the standalone runtime
+  // may not ship `sharp`, and since assets are already optimal this is zero-risk.
+  // We still use next/image with explicit width/height for layout stability + lazy loading.
+  images: { unoptimized: true },
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {

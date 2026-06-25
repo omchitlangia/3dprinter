@@ -1,5 +1,9 @@
 import Link from "next/link";
+import { Clock } from "lucide-react";
 
+import { Notice } from "@/components/notice";
+import { PageHeader, PageShell } from "@/components/page-shell";
+import { MAX_UPLOAD_BYTES } from "@/lib/uploads";
 import { prisma } from "@/lib/prisma";
 import { requireUserPage } from "@/server/auth/guards";
 import { ApplicationForm } from "./application-form";
@@ -22,29 +26,32 @@ export default async function ApplyPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">New print application</h1>
-        <p className="text-muted-foreground">
-          Upload your model, choose a filament, and propose three days. An admin
-          will review and confirm one of your days.
-        </p>
-      </div>
+    <PageShell className="max-w-3xl">
+      <PageHeader
+        eyebrow="Book a print"
+        title="New print application"
+        description="Upload your model, choose a filament, and propose three days. An admin will review your request and confirm one of your days."
+      />
 
-      {pending ? (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-6 text-sm text-amber-900">
-          <p className="font-medium">You already have an application awaiting review.</p>
-          <p className="mt-1">
-            You can submit a new one once it&apos;s approved or rejected. Track it on{" "}
-            <Link href="/applications" className="underline">
-              My applications
-            </Link>
-            .
-          </p>
-        </div>
-      ) : (
-        <ApplicationForm initialName={dbUser?.name ?? ""} />
-      )}
-    </div>
+      <div className="mt-8">
+        {pending ? (
+          <Notice
+            tone="warning"
+            icon={Clock}
+            title="You already have an application awaiting review."
+          >
+            <p>
+              You can submit a new one once it&apos;s approved or rejected. Track
+              it on <Link href="/applications">My applications</Link>.
+            </p>
+          </Notice>
+        ) : (
+          <ApplicationForm
+            initialName={dbUser?.name ?? ""}
+            maxUploadBytes={MAX_UPLOAD_BYTES}
+          />
+        )}
+      </div>
+    </PageShell>
   );
 }

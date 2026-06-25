@@ -10,7 +10,22 @@ const config: Config = {
       screens: { "2xl": "1400px" },
     },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
       colors: {
+        // Brand palette — "premium maker-lab". Used across the marketing pages.
+        brand: {
+          ink: "#0B0F14",       // near-black base (hero bg, dark surfaces)
+          surface: "#F6F7F8",   // off-white content sections
+          teal: "#14B8A6",      // primary accent (echoes the teal dragon)
+          "teal-hover": "#0D9488",
+          cyan: "#22D3EE",      // bright glow
+          amber: "#F59E0B",     // secondary accent (filament), used sparingly
+          slate: "#94A3B8",     // muted
+          hairline: "#E2E8F0",  // hairline borders
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -59,10 +74,15 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(6px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        float: "float 2.4s ease-in-out infinite",
       },
     },
   },
